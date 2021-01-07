@@ -11,6 +11,7 @@ function soln = optimTraj(problem)
 %               t = [1, nTime] = time vector (grid points)
 %               x = [nState, nTime] = state vector at each grid point
 %               u = [nControl, nTime] = control vector at each grid point
+%               p = [nParam, 1] = parameters
 %               t0 = scalar = initial time
 %               tF = scalar = final time
 %               x0 = [nState, 1] = initial state
@@ -67,6 +68,8 @@ function soln = optimTraj(problem)
 %       .control.low = [nControl, 1]
 %       .control.upp = [nControl, 1]
 %
+%       .parameter.low = [nParam, 1]
+%       .parameter.upp = [nParam, 1]
 %
 %
 %   guess - struct with an initial guess at the trajectory
@@ -74,6 +77,7 @@ function soln = optimTraj(problem)
 %       .time = [1, nGridGuess]
 %       .state = [nState, nGridGuess]
 %       .control = [nControl, nGridGuess]
+%       .parameter = [nParam, 1]
 %
 %   options = options for the transcription algorithm (this function)
 %

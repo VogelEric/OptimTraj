@@ -62,6 +62,7 @@ if ~isfield(problem,'bounds')
     problem.bounds.initialState = [];
     problem.bounds.finalState = [];
     problem.bounds.control = [];
+    problem.bounds.parameters = [];
 else
     
     if ~isfield(problem.bounds,'initialTime')
@@ -94,7 +95,14 @@ else
     problem.bounds.control = ...
         checkLowUpp(problem.bounds.control,nControl,1,'control');
     
+    if ~isfield(problem.bounds,'parameter')
+        problem.bounds.parameter = []; end
+    nParam = size(problem.bounds.parameter, 1);
+    problem.bounds.parameter = ...
+        checkLowUpp(problem.bounds.parameter, nParam,1,'parameter');
+    
 end
+
 
 end
 
