@@ -106,16 +106,17 @@ subplot(3,1,1);
 plot(t, x(1,:));
 xlabel('time (s)');
 ylabel('distance (m)');
-title('Fastest Time to drive 400m');
+s = sprintf('Fastest Time to drive 400m: %f sec', soln(end).grid.time(end));
+title(s);
 
 subplot(3,1,2);
 plot(t, x(2,:));
 xlabel('time (s)');
 ylabel('velocity (m/s)');
-title('Fastest Time to drive 400m');
+title('Velocity Profile');
 
 subplot(3,1,3);
 plot(t, u/1000);
 xlabel('time (s)');
 ylabel('acceleration forve (kN)');
-title('Fastest Time to drive 400m');
+title('Acceleration Input');
