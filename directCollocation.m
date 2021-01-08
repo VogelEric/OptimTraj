@@ -42,8 +42,9 @@ guess.tSpan = G.time([1,end]);
 guess.time = linspace(guess.tSpan(1), guess.tSpan(2), nGrid);
 guess.state = interp1(G.time', G.state', guess.time')';
 guess.control = interp1(G.time', G.control', guess.time')';
+guess.parameter = G.parameter;
 
-[zGuess, pack] = packDecVar(guess.time, guess.state, guess.control);
+[zGuess, pack] = packDecVar(guess.time, guess.state, guess.control, guess.parameter);
 
 if flagGradCst || flagGradObj
     gradInfo = grad_computeInfo(pack);
@@ -53,12 +54,14 @@ end
 tLow = linspace(B.initialTime.low, B.finalTime.low, nGrid);
 xLow = [B.initialState.low, B.state.low*ones(1,nGrid-2), B.finalState.low];
 uLow = B.control.low*ones(1,nGrid);
-zLow = packDecVar(tLow,xLow,uLow);
+pLow = B.parameter.low;
+zLow = packDecVar(tLow,xLow,uLow,pLow);
 
 tUpp = linspace(B.initialTime.upp, B.finalTime.upp, nGrid);
 xUpp = [B.initialState.upp, B.state.upp*ones(1,nGrid-2), B.finalState.upp];
 uUpp = B.control.upp*ones(1,nGrid);
-zUpp = packDecVar(tUpp,xUpp,uUpp);
+pUpp = B.parameter.upp;
+zUpp = packDecVar(tUpp,xUpp,uUpp,pUpp);
 
 %%%% Set up problem for fmincon:
 if flagGradObj
@@ -93,7 +96,7 @@ P.solver = 'fmincon';
 %%%% Call fmincon to solve the non-linear program (NLP)
 tic;
 [zSoln, objVal,exitFlag,output] = fmincon(P);
-[tSoln,xSoln,uSoln] = unPackDecVar(zSoln,pack);
+[tSoln,xSoln,uSoln,pSoln] = unPackDecVar(zSoln,pack);
 nlpTime = toc;
 
 %%%% Store the results:
@@ -101,6 +104,7 @@ nlpTime = toc;
 soln.grid.time = tSoln;
 soln.grid.state = xSoln;
 soln.grid.control = uSoln;
+soln.grid.parameter = pSoln;
 
 soln.interp.state = @(t)( interp1(tSoln',xSoln',t','linear',nan)' );
 soln.interp.control = @(t)( interp1(tSoln',uSoln',t','linear',nan)' );
@@ -133,15 +137,16 @@ end
 %%%%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%%%%
 
 
-function [z,pack] = packDecVar(t,x,u)
+function [z,pack] = packDecVar(t,x,u,p)
 %
-% This function collapses the time (t), state (x)
-% and control (u) matricies into a single vector
+% This function collapses the time (t), state (x), control (u),
+% and parameter (p) matricies into a single vector
 %
 % INPUTS:
 %   t = [1, nTime] = time vector (grid points)
 %   x = [nState, nTime] = state vector at each grid point
 %   u = [nControl, nTime] = control vector at each grid point
+%   p = [nParam, 1] = parameters to optimize
 %
 % OUTPUTS:
 %   z = column vector of 2 + nTime*(nState+nControl) decision variables
@@ -154,10 +159,12 @@ function [z,pack] = packDecVar(t,x,u)
 nTime = length(t);
 nState = size(x,1);
 nControl = size(u,1);
+nParam = size(p,1);
 
 tSpan = [t(1); t(end)];
 xCol = reshape(x, nState*nTime, 1);
 uCol = reshape(u, nControl*nTime, 1);
+pCol = reshape(p, nParam, 1);
 
 indz = reshape(2+(1:numel(u)+numel(x)),nState+nControl,nTime);
 
@@ -165,58 +172,67 @@ indz = reshape(2+(1:numel(u)+numel(x)),nState+nControl,nTime);
 tIdx = 1:2;
 xIdx = indz(1:nState,:);
 uIdx = indz(nState+(1:nControl),:);
+pIdx = 2+numel(indz)+(1:nParam);
 
 % decision variables
 % variables are indexed so that the defects gradients appear as a banded
 % matrix
-z = zeros(2+numel(indz),1);
+z = zeros(2+numel(indz)+nParam,1);
 z(tIdx(:),1) = tSpan;
 z(xIdx(:),1) = xCol;
 z(uIdx(:),1) = uCol;
+z(pIdx(:),1) = pCol;
 
 pack.nTime = nTime;
 pack.nState = nState;
 pack.nControl = nControl;
+pack.nParam = nParam;
 pack.tIdx = tIdx;
 pack.xIdx = xIdx;
 pack.uIdx = uIdx;
+pack.pIdx = pIdx;
 
 end
 
 %%%%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%%%%
 
-function [t,x,u] = unPackDecVar(z,pack)
+function [t,x,u,p] = unPackDecVar(z,pack)
 %
 % This function unpacks the decision variables for
 % trajectory optimization into the time (t),
-% state (x), and control (u) matricies
+% state (x), control (u), and parameter (p) matricies
 %
 % INPUTS:
-%   z = column vector of 2 + nTime*(nState+nControl) decision variables
-%   pack = details about how to convert z back into t,x, and u
+%   z = column vector of 2 + nTime*(nState+nControl)+nParam decision variables
+%   pack = details about how to convert z back into t,x,u, and p
 %       .nTime
 %       .nState
 %       .nControl
+%       .nParam
 %
 % OUTPUTS:
 %   t = [1, nTime] = time vector (grid points)
 %   x = [nState, nTime] = state vector at each grid point
 %   u = [nControl, nTime] = control vector at each grid point
+%   p = [nParam, 1] = parameters to optimize
 %
 
 nTime = pack.nTime;
 nState = pack.nState;
 nControl = pack.nControl;
+nParam = pack.nParam;
 
 t = linspace(z(1),z(2),nTime);
 
 x = z(pack.xIdx);
 u = z(pack.uIdx);
+p = z(pack.pIdx);
 
-% make sure x and u are returned as vectors, [nState,nTime] and
-% [nControl,nTime]
+% make sure x, u, and p are returned as vectors, [nState,nTime],
+% [nControl,nTime], and
 x = reshape(x,nState,nTime);
 u = reshape(u,nControl,nTime);
+p = reshape(p,nParam,1);
 
 end
 
@@ -237,14 +253,19 @@ function cost = myObjective(z,pack,pathObj,bndObj,weights)
 %   cost = scale cost for this set of decision variables
 %
 
-[t,x,u] = unPackDecVar(z,pack);
+[t,x,u,p] = unPackDecVar(z,pack);
 
 % Compute the cost integral along trajectory
 if isempty(pathObj)
     integralCost = 0;
 else
     dt = (t(end)-t(1))/(pack.nTime-1);
-    integrand = pathObj(t,x,u);  %Calculate the integrand of the cost function
+    if nargin(pathObj)==3 %3 arguments without paramater(s)
+        integrand = pathObj(t,x,u);  %Calculate the integrand of the cost function
+    elseif nargin(pathObj)==4 %4 arguments with parameter(s)
+        integrand = pathObj(t,x,u,p);  %Calculate the integrand of the cost function
+    end
+    
     integralCost = dt*integrand*weights;  %Trapazoidal integration
 end
 
@@ -256,7 +277,12 @@ else
     tF = t(end);
     x0 = x(:,1);
     xF = x(:,end);
-    bndCost = bndObj(t0,x0,tF,xF);
+    
+    if nargin(bndObj)==4 %4 arguments without paramater(s)
+        bndCost = bndObj(t0,x0,tF,xF);
+    elseif nargin(bndObj)==5 %5 arguments with parameter(s)
+        bndCost = bndObj(t0,x0,tF,xF,p);
+    end
 end
 
 cost = bndCost + integralCost;
@@ -282,16 +308,20 @@ function [c, ceq] = myConstraint(z,pack,dynFun, pathCst, bndCst, defectCst)
 %   ceq = equality constraints to be passed to fmincon
 %
 
-[t,x,u] = unPackDecVar(z,pack);
+[t,x,u,p] = unPackDecVar(z,pack);
 
 
 %%%% Compute defects along the trajectory:
 dt = (t(end)-t(1))/(length(t)-1);
-f = dynFun(t,x,u);
+if nargin(dynFun)==3 %3 arguments without paramater(s)
+    f = dynFun(t,x,u);
+elseif nargin(dynFun)==4 %4 arguments with paramater(s)
+    f = dynFun(t,x,u,p);
+end
 defects = defectCst(dt,x,f);
 
 %%%% Call user-defined constraints and pack up:
-[c, ceq] = collectConstraints(t,x,u,defects, pathCst, bndCst);
+[c, ceq] = collectConstraints(t,x,u,p,defects, pathCst, bndCst);
 
 end
 

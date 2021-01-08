@@ -1,5 +1,5 @@
-function [c, ceq] = collectConstraints(t,x,u,defects, pathCst, bndCst)
-% [c, ceq] = collectConstraints(t,x,u,defects, pathCst, bndCst)
+function [c, ceq] = collectConstraints(t,x,u,p,defects, pathCst, bndCst)
+% [c, ceq] = collectConstraints(t,x,u,p,defects, pathCst, bndCst)
 %
 % OptimTraj utility function.
 %
@@ -10,6 +10,7 @@ function [c, ceq] = collectConstraints(t,x,u,defects, pathCst, bndCst)
 %   t = time vector
 %   x = state matrix
 %   u = control matrix
+%   p = parameter matrix
 %   defects = defects matrix
 %   pathCst = user-defined path constraint function
 %   bndCst = user-defined boundary constraint function
@@ -38,7 +39,11 @@ else
     tF = t(end);
     x0 = x(:,1);
     xF = x(:,end);
-    [c_bnd, ceq_bnd] = bndCst(t0,x0,tF,xF);
+    if nargin(bndObj)==4 %4 arguments without paramater(s)
+        [c_bnd, ceq_bnd] = bndCst(t0,x0,tF,xF);
+    elseif nargin(bndObj)==5 %5 arguments with paramater(s)
+        [c_bnd, ceq_bnd] = bndCst(t0,x0,tF,xF,p);
+    end
 end
 
 %%%% Pack everything up:

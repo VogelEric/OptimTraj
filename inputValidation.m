@@ -95,8 +95,17 @@ else
     problem.bounds.control = ...
         checkLowUpp(problem.bounds.control,nControl,1,'control');
     
+    if xor( isfield(problem.bounds,'parameter'), isfield(problem.guess,'parameter') )
+        error(['Both problem.bounds.parameter and problem.guess.parameter ',
+            'must exist to optimize parameters.']);
+    end
+    
     if ~isfield(problem.bounds,'parameter')
         problem.bounds.parameter = []; end
+    
+    if ~isfield(problem.guess,'parameter')
+        problem.guess.parameter = []; end
+    
     nParam = size(problem.bounds.parameter, 1);
     problem.bounds.parameter = ...
         checkLowUpp(problem.bounds.parameter, nParam,1,'parameter');

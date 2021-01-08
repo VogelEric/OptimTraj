@@ -61,7 +61,7 @@ P.bounds.parameter.upp = mUpp;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 
 P.guess.time = [0, 6, 12]; %(s)
-P.guess.state = [ [d0;v0], [d0;v0], [dF;vF] ];
+P.guess.state = [ [d0;v0], [dF/2;v0], [dF;vF] ];
 P.guess.control = [uUpp, uUpp, uLow];
 P.guess.parameter = [1000];
 
