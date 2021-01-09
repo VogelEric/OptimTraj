@@ -77,17 +77,28 @@ problem.func.weights([1,end]) = 0.5;
 tSoln = soln.grid.time;
 xSoln = soln.grid.state;
 uSoln = soln.grid.control;
+pSoln = soln.grid.parameter;
 soln.interp.control = @(t)( interp1(tSoln',uSoln',t')' );
 
 % Use piecewise quadratic interpolation for the state:
-fSoln = problem.func.dynamics(tSoln,xSoln,uSoln);
+if nargin(problem.func.dynamics)==3 % without parameters
+    fSoln = problem.func.dynamics(tSoln,xSoln,uSoln);
+elseif nargin(problem.func.dynamics)==4 % with parameters
+    fSoln = problem.func.dynamics(tSoln,xSoln,uSoln,pSoln);
+end
 soln.interp.state = @(t)( bSpline2(tSoln,xSoln,fSoln,t) );
 
 % Interpolation for checking collocation constraint along trajectory:
 %  collocation constraint = (dynamics) - (derivative of state trajectory)
-soln.interp.collCst = @(t)( ...
-    problem.func.dynamics(t, soln.interp.state(t), soln.interp.control(t))...
-    - interp1(tSoln',fSoln',t')' );
+if nargin(problem.func.dynamics)==3 % without parameters
+    soln.interp.collCst = @(t)( ...
+        problem.func.dynamics(t, soln.interp.state(t), soln.interp.control(t))...
+        - interp1(tSoln',fSoln',t')' );
+elseif nargin(problem.func.dynamics)==4 % with parameters
+    soln.interp.collCst = @(t)( ...
+        problem.func.dynamics(t, soln.interp.state(t), soln.interp.control(t), soln.grid.parameter)...
+        - interp1(tSoln',fSoln',t')' );
+end
 
 % Use multi-segment simpson quadrature to estimate the absolute local error
 % along the trajectory.
